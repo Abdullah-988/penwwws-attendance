@@ -2,12 +2,8 @@ import tkinter as tk
 import json
 import os
 import requests
-from token_input_page import show_token_input_page
-from home_page import show_home_page
-from groups_page import show_groups_page
-from place_fingerprint_page import show_place_fingerprint_page
 
-API_BASE_URL = "http://localhost:5555/api"
+API_BASE_URL = "https://backend.penwwws.com/api"
 TOKEN_FILE = "session.json"
 
 app_state = {
@@ -16,7 +12,8 @@ app_state = {
     "school_id": None,
     "selected_student": None,
     "selected_group": None,
-    "selected_subject": None
+    "selected_subject_id": None,
+    "selected_session_id": None
 }
 
 def center_window(win, width, height):
@@ -39,6 +36,8 @@ def validate_token(token):
     return False
 
 def check_saved_token(root):
+    from home_page import show_home_page
+    from token_input_page import show_token_input_page
     if os.path.exists(TOKEN_FILE):
         with open(TOKEN_FILE, "r") as f:
             token = json.load(f).get("token")

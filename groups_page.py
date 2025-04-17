@@ -2,7 +2,7 @@ import tkinter as tk
 import requests
 from group_students_page import show_groups_students_page
 
-API_BASE_URL = "http://localhost:5555/api"
+from main import API_BASE_URL
 
 def show_groups_page(root, app_state):
     from home_page import show_home_page

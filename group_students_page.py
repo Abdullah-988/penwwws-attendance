@@ -2,7 +2,7 @@ import tkinter as tk
 import requests
 from place_fingerprint_page import show_place_fingerprint_page
 
-API_BASE_URL = "http://localhost:5555/api"
+from main import API_BASE_URL
 
 def show_groups_students_page(root, app_state):
     from groups_page import show_groups_page

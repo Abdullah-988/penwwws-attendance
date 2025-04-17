@@ -6,7 +6,7 @@ import json
 import requests
 from home_page import show_home_page
 
-API_BASE_URL = "http://localhost:5555/api"
+from main import API_BASE_URL
 
 TOKEN_FILE = "session.json"
 
@@ -20,23 +20,23 @@ def show_token_input_page(root, app_state):
     inner = tk.Frame(frame)
     inner.place(relx=0.5, rely=0.5, anchor="center")
 
-    tk.Label(inner, text="Enter Username:", font=("Arial", 12)).pack(anchor="w")
-    entry_username = tk.Entry(inner, width=30, font=("Arial", 11))
-    entry_username.pack(pady=1)
+    tk.Label(inner, text="Enter ID:", font=("Arial", 12)).pack(anchor="w")
+    entry_id = tk.Entry(inner, width=30, font=("Arial", 11))
+    entry_id.pack(pady=1)
 
     tk.Label(inner, text="Enter Password:", font=("Arial", 12)).pack(anchor="w")
     entry_password = tk.Entry(inner, show="*", width=30, font=("Arial", 11))
     entry_password.pack(pady=1)
 
     def submit():
-        username = entry_username.get().strip()
+        id = entry_id.get().strip()
         password = entry_password.get().strip()
-        if not username or not password:
+        if not id or not password:
             messagebox.showerror("Error", "Username and password cannot be empty")
             return
 
         try:
-            response = requests.post(f"{API_BASE_URL}/device/login", data={"username": username, "password": password})
+            response = requests.post(f"{API_BASE_URL}/device/login", data={"id": id, "password": password})
             if response.status_code == 200:
                 token = response.headers.get("Authorization").split(" ")[1]
 
@@ -67,6 +67,6 @@ def show_token_input_page(root, app_state):
             messagebox.showerror("Error", "Network error or invalid response.")
 
     tk.Button(inner, text="Submit", command=submit, width=20, height=2).pack(pady=10)
-    entry_username.focus()
+    entry_id.focus()
 
     return frame

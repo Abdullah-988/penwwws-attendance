@@ -1,8 +1,8 @@
 import tkinter as tk
 import requests
-from group_students_page import show_groups_students_page
+from session_students_page import show_session_students_page
 
-API_BASE_URL = "http://localhost:5555/api"
+from main import API_BASE_URL
 
 def show_subjects_presets_page(root, app_state):
     from subjects_page import show_subjects_page
@@ -40,7 +40,7 @@ def show_subjects_presets_page(root, app_state):
     canvas.bind("<Configure>", on_canvas_resize)
 
     try:
-        res = requests.get(f"{API_BASE_URL}/device/school/subject", headers={
+        res = requests.get(f"{API_BASE_URL}/device/school/subject/{app_state["selected_subject_id"]}/session", headers={
             "Authorization": f"Bearer {app_state['token']}"
         })
         if res.status_code == 200:
@@ -53,6 +53,6 @@ def show_subjects_presets_page(root, app_state):
     except Exception as e:
         print("Error fetching groups:", e)
 
-def open_presets_page(root, app_state, subject):
-    app_state["selected_subject"] = subject
-    show_groups_students_page(root, app_state)
+def open_presets_page(root, app_state, session):
+    app_state["selected_session_id"] = session.get("id")
+    show_session_students_page(root, app_state)
