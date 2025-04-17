@@ -40,7 +40,7 @@ def show_session_students_page(root, app_state):
     canvas.bind("<Configure>", on_canvas_resize)
 
     try:
-        res = requests.get(f"{API_BASE_URL}/device/school/student/session/{app_state["selected_session_id"]}", headers={
+        res = requests.get(f"{API_BASE_URL}/device/school/student/session/{app_state['selected_session_id']}", headers={
             "Authorization": f"Bearer {app_state['token']}"
         })
         if res.status_code == 200:
