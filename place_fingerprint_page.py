@@ -1,8 +1,8 @@
 import tkinter as tk
 import threading
 import requests
-import serial
-import adafruit_fingerprint
+import base64
+from pyfingerprint.pyfingerprint import PyFingerprint
 
 from main import API_BASE_URL
 
@@ -28,20 +28,27 @@ def show_place_fingerprint_page(root, app_state):
 
     def scan_and_send():
         try:
-            uart = serial.Serial("/dev/ttyAMA0", baudrate=57600, timeout=1)
-            finger = adafruit_fingerprint.Adafruit_Fingerprint(uart)
+            sensor = PyFingerprint("/dev/ttyAMA0", 57600, 0xFFFFFFFF, 0x00000000)
 
-            if finger.get_image() != adafruit_fingerprint.OK:
-                return
+            if not sensor.verifyPassword():
+                raise ValueError('Could not verify sensor password.')
 
-            if finger.image_2_tz(1) != adafruit_fingerprint.OK:
-                return
+            print('Waiting for finger...')
+            while not sensor.readImage():
+                pass
 
-            characteristics = finger.download_model(1)
-            if not characteristics:
-                return
+        # Convert the image to characteristics and store in char buffer 1
+            sensor.convertImage(0x01)
 
-            fingerprint_data = list(characteristics)
+        # Download the characteristics from buffer 1
+            template = sensor.downloadCharacteristics(0x01)  # list of integers (0–255)
+
+        # Convert to bytes
+            template_bytes = bytes(template)
+
+        # Encode to Base64
+            fp_bytes = base64.b64encode(template_bytes).decode('utf-8')
+
 
             res = requests.post(
                 f"{API_BASE_URL}/device/school/fingerprint",
@@ -51,10 +58,9 @@ def show_place_fingerprint_page(root, app_state):
                 },
                 json={
                     "studentId": student["id"],
-                    "fingerprint": fingerprint_data
+                    "fingerprint": fp_bytes
                 }
             )
-
             if res.status_code == 200:
                 root.after(1500, lambda: show_groups_students_page(root, app_state))
             else:

@@ -1,8 +1,7 @@
 import tkinter as tk
-from adafruit_fingerprint import Adafruit_Fingerprint
-import serial
+import base64
 import requests
-import time
+from pyfingerprint.pyfingerprint import PyFingerprint
 
 from main import API_BASE_URL
 
@@ -30,50 +29,53 @@ def show_place_fingerprint_page(root, app_state):
 
     def run_attendance_scan(app_state, update_status_callback):
         try:
-            ser = serial.Serial("/dev/ttyAMA0", baudrate=57600, timeout=1)
-            finger = Adafruit_Fingerprint(ser)
-
-            update_status_callback("Waiting for finger...")
-            while finger.get_image() != Adafruit_Fingerprint.OK:
-                time.sleep(0.5)
-
-            if finger.image_2_tz(1) != Adafruit_Fingerprint.OK:
-                update_status_callback("Failed to convert image.")
-                return
-
-            if finger.download_model(1) != Adafruit_Fingerprint.OK:
-                update_status_callback("Failed to download template.")
-                return
-
-            scanned_data = list(finger.data)
-
             student = app_state.get("selected_student")
             if not student:
                 update_status_callback("No student selected.")
                 return
+            f = PyFingerprint("/dev/ttyAMA0", 57600, 0xFFFFFFFF, 0x00000000)
 
+            if not f.verifyPassword():
+                raise ValueError('Sensor password is wrong!')
+
+            print('Sensor initialized.')
             res = requests.get(
-                f"{API_BASE_URL}/device/fingerprint/{student['id']}",
+                f"{API_BASE_URL}/device/school/fingerprint/{student['id']}",
                 headers={"Authorization": f"Bearer {app_state['token']}"}
             )
             if res.status_code != 200:
                 update_status_callback("Failed to fetch stored fingerprint.")
+                print(res)
                 return
+            fingerprint_array = list(base64.b64decode(res.json()['fingerprint']))
 
-            stored_data = res.json().get("fingerprint")
-            if not stored_data:
-                update_status_callback("No fingerprint saved for this student.")
-                return
+            if not f.uploadCharacteristics(0x01, fingerprint_array):
+                raise Exception('Failed to upload template.')
 
-            if len(scanned_data) != len(stored_data):
-                update_status_callback("Fingerprint does not match.")
-                return
+            matched = False
+            while not matched == True:
+        # Now ask user to scan a finger
+                print('Please place your finger for scanning...')
+                while not f.readImage():
+                    pass
 
-            # Compare element-wise
-            if all(scanned_data[i] == stored_data[i] for i in range(len(scanned_data))):
-                update_status_callback("✅ Fingerprint matched. Attendance marked.")
-            else:
-                update_status_callback("❌ Fingerprint does not match.")
+                f.convertImage(0x02)  # Store scanned fingerprint in char buffer 2
+
+        # Compare the uploaded one with the new scan
+                match_score = f.compareCharacteristics()
+
+                print(f'Match score: {match_score}')
+                if match_score < 40:
+                    continue
+
+                print("Fingerprint matched!")
+                print(app_state.get('selected_session_id'))
+                res = requests.post(f"{API_BASE_URL}/device/school/session/{app_state.get('selected_session_id')}", json={"studentId": student['id']},
+                headers={
+                   "Authorization": f"Bearer {app_state['token']}",
+                  }
+                )
+                matched = True
 
         except Exception as e:
             update_status_callback(f"Error: {e}")
