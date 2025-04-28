@@ -51,7 +51,7 @@ def check_saved_token(root):
 def main():
     root = tk.Tk()
     root.title("Penwwws Attendance")
-    center_window(root, 320, 240)
+    center_window(root, 480, 320)
     check_saved_token(root)
     root.mainloop()
 
