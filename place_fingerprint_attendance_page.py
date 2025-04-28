@@ -6,7 +6,7 @@ from pyfingerprint.pyfingerprint import PyFingerprint
 from main import API_BASE_URL
 
 def show_place_fingerprint_page(root, app_state):
-    from session_students_page import show_session_students_page
+    from subjects_presets_page import show_subjects_presets_page
 
     for widget in root.winfo_children():
         widget.destroy()
@@ -24,13 +24,8 @@ def show_place_fingerprint_page(root, app_state):
         status_label.config(text=text)
         root.update_idletasks()
 
-    def run_attendance_scan():
+    def run_subject_attendance_scan():
         try:
-            student = app_state.get("selected_student")
-            if not student:
-                update_status("No student selected.")
-                return
-
             f = PyFingerprint("/dev/ttyAMA0", 57600, 0xFFFFFFFF, 0x00000000)
 
             if not f.verifyPassword():
@@ -38,58 +33,73 @@ def show_place_fingerprint_page(root, app_state):
 
             print('Sensor initialized.')
 
+            subject_id = app_state.get("selected_subject_id")
+            if not subject_id:
+                update_status("No subject selected.")
+                return
+
             res = requests.get(
-                f"{API_BASE_URL}/device/school/fingerprint/{student['id']}",
+                f"{API_BASE_URL}/device/school/subject/{subject_id}/fingerprint",
                 headers={"Authorization": f"Bearer {app_state['token']}"}
             )
             if res.status_code != 200:
-                update_status("Failed to fetch stored fingerprint.")
+                update_status("Failed to fetch fingerprints.")
                 print(res)
                 return
 
-            fingerprint_array = list(base64.b64decode(res.json()['fingerprint']))
+            fingerprint_entries = res.json()  # List of { content: base64 fingerprint, user: { id, fullName } }
 
-            if not f.uploadCharacteristics(0x01, fingerprint_array):
-                raise Exception('Failed to upload template.')
+            if not fingerprint_entries:
+                update_status("No fingerprints found.")
+                return
 
-            matched = False
-            while not matched:
-                print('Please place your finger for scanning...')
+            print("Waiting for user to scan...")
+
+            while True:
                 update_status("Place your finger...")
-
                 while not f.readImage():
                     root.update()
                     pass
 
-                f.convertImage(0x02)
+                f.convertImage(0x02)  # Save scanned finger to char buffer 2
 
-                match_score = f.compareCharacteristics()
+                recognized_user = None
 
-                print(f'Match score: {match_score}')
-                if match_score < 40:
-                    update_status("No match, try again...")
-                    continue
+                for entry in fingerprint_entries:
+                    template_bytes = base64.b64decode(entry["content"])
+                    template_list = list(template_bytes)
 
-                print("Fingerprint matched!")
-                update_status("Fingerprint matched!")
+                    if not f.uploadCharacteristics(0x01, template_list):
+                        continue  # Skip if upload failed
 
-                post_res = requests.post(
-                    f"{API_BASE_URL}/device/school/session/{app_state.get('selected_session_id')}",
-                    json={"studentId": student['id']},
-                    headers={
-                        "Authorization": f"Bearer {app_state['token']}",
-                    }
-                )
-                if post_res.status_code == 200:
-                    update_status("Attendance marked successfully.")
-                    root.after(1000, lambda: show_session_students_page(root, app_state))
+                    match_score = f.compareCharacteristics()
+
+                    print(f"Comparing with {entry['user']['fullName']}, score: {match_score}")
+
+                    if match_score >= 40:
+                        recognized_user = entry['user']
+                        break  # Stop searching after first match
+
+                if recognized_user:
+                    update_status(f"Attendance added for {recognized_user['fullName']}")
+                    post_res = requests.post(
+                        f"{API_BASE_URL}/device/school/session/{app_state.get('selected_session_id')}",
+                        json={"studentId": recognized_user['id']},
+                        headers={"Authorization": f"Bearer {app_state['token']}"}
+                    )
+                    if post_res.status_code == 200:
+                        print("Attendance marked.")
+                    else:
+                        print("Failed to mark attendance.")
+                    root.after(1500, lambda: show_subjects_presets_page(root, app_state))
+                    break
                 else:
-                    update_status("Failed to mark attendance.")
-                matched = True
+                    update_status("Not recognized. Try again.")
+                    root.after(1500, lambda: update_status("Place your finger..."))
 
         except Exception as e:
             update_status(f"Error: {e}")
 
-    tk.Button(inner, text="Back", command=lambda: show_session_students_page(root, app_state)).pack(pady=10)
+    tk.Button(inner, text="Back", command=lambda: show_subjects_presets_page(root, app_state)).pack(pady=10)
 
-    root.after(500, run_attendance_scan)
+    root.after(500, run_subject_attendance_scan)

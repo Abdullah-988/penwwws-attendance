@@ -1,6 +1,6 @@
 import tkinter as tk
 import requests
-from session_students_page import show_session_students_page
+from place_fingerprint_attendance_page import show_place_fingerprint_page
 
 from main import API_BASE_URL
 
@@ -55,4 +55,4 @@ def show_subjects_presets_page(root, app_state):
 
 def open_presets_page(root, app_state, session):
     app_state["selected_session_id"] = session.get("id")
-    show_session_students_page(root, app_state)
+    show_place_fingerprint_page(root, app_state)
